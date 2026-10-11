@@ -30,8 +30,8 @@ Il risultato sarà nella cartella `release/`. La configurazione dell'installer �
 ## Funzioni disponibili
 
 - Dashboard con quattro clienti e dati energetici dimostrativi.
-- Inserimento cliente, ricerca e scheda dettaglio.
-- Salvataggio dei nuovi clienti in localStorage e lettura al riavvio.
+- Creazione, ricerca e modifica della scheda cliente completa, con campi facoltativi.
+- Salvataggio delle schede in localStorage e lettura al riavvio, compatibile con i clienti della versione 0.1.0.
 - Esportazione JSON dell'archivio; ripristino da file da implementare.
 - PDF dimostrativo non contrattuale dalla scheda cliente.
 - Sezioni con roadmap per bollette, impianti, incentivi e scenari.
@@ -73,7 +73,7 @@ Non caricare dati dei clienti, backup, credenziali o preventivi reali nel reposi
 
 ## Prossimi incrementi
 
-1. Archivio clienti completo: modifica, eliminazione controllata, backup/ripristino e SQLite.
+1. Archivio clienti: eliminazione controllata, backup/ripristino e SQLite.
 2. Bollette luce/gas con input strutturato e verifica dei totali prima dell'importazione PDF.
 3. Motore di dimensionamento con ipotesi esplicite e unità validate.
 4. Scenari economici e regole incentivi versionate e documentate da fonti ufficiali.
@@ -102,3 +102,19 @@ In questo ambiente l'installazione è stata eseguita con `--ignore-scripts` per 
 La build `npm run build -- --mode github-pages` usa `/EnergyAdvisorPro/`, rispettando le maiuscole del repository. La build normale conserva `./` per Electron. Il workflow usa la modalità `github-pages`. Il link previsto diventa disponibile solo dopo il deploy riuscito.
 
 I nomi dei clienti e del consulente nel codice sono fittizi, generati per la demo; non provengono da un archivio clienti reale.
+
+## Scheda cliente completa (0.2.0)
+
+Da **Clienti**, apri la freccia sulla riga del cliente per modificare la scheda. **Nuovo cliente** apre la stessa scheda vuota. Inserisci le informazioni disponibili e scegli **Salva scheda**. Per controllare la persistenza, ricarica la pagina e riapri il cliente nello stesso browser.
+
+La scheda include anagrafica e contatti, indirizzo, comune e provincia, superficie riscaldata, anno di costruzione, isolamento, infissi e tipo di edificio. Include consumo e spesa annui luce/gas, riferimento delle bollette, riscaldamento, caldaia e terminali multipli, fotovoltaico, accumulo e climatizzatori esistenti, obiettivi e note.
+
+Tutti i campi sono facoltativi, anche il nome. Un campo numerico vuoto indica dato non disponibile; zero è un valore esplicito. Consumo e spesa hanno origini distinte (effettivo/effettiva o stimato/stimata). Un dato privo di origine resta non classificato; i valori precedenti non vengono convertiti automaticamente in misure effettive. I numeri negativi, gli anni non validi e i recapiti email non validi vengono rifiutati dal modulo. I dati non noti non vengono stimati automaticamente.
+
+La chiave `energy-advisor-pro:clients:v1` è invariata: la lettura non riscrive i clienti precedenti e l'aggiunta di dettagli è compatibile con il vecchio schema. Modificare una scheda preserva gli altri clienti e i dati del progetto (ID, stato, intervento e investimento). In caso di archivio illeggibile il salvataggio è bloccato; in caso di errore di scrittura la scheda resta aperta. Una scheda del browser con dati obsoleti non può sovrascrivere silenziosamente gli aggiornamenti di un'altra scheda. Il backup JSON include tutti i dettagli. Prima di cancellare i dati del browser, esporta un backup; il ripristino guidato non è ancora implementato.
+
+I dati inseriti non sono inviati a GitHub o a un server: restano nel localStorage del browser sul dispositivo. La persistenza riguarda lo stesso browser e lo stesso indirizzo del sito; non c'è sincronizzazione tra telefono e PC. La chiusura della scheda con modifiche non salvate richiede conferma. Il PDF demo usa i dati già salvati e va generato dopo aver salvato le modifiche.
+
+### Verifica
+
+`npm test` esegue i test di persistenza, compatibilità, modifica, campi sconosciuti, consumo zero, errore di scrittura e conflitti tra schede. Il workflow Pages esegue i test prima di compilare e pubblicare. I dati dei test sono esclusivamente esempi fittizi.
