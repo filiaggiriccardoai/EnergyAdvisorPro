@@ -40,7 +40,7 @@ I dati iniziali sono esempi. Non sono implementati analisi delle bollette, dimen
 
 ## Archiviazione
 
-Chiave `energy-advisor-pro:clients:v1`, nel profilo del browser o di Electron. Nessun backend, sincronizzazione o font remoto. Cancellare il profilo o i dati del browser elimina l'archivio. I dati non sono cifrati: questa versione è una base dimostrativa, da consolidare prima dell'uso con dati personali reali. Per la versione professionale prevedere SQLite tramite API Electron limitata, backup/ripristino, migrazioni, validazione e protezione dei dati.
+Dalla versione 0.3.0, profili e associazioni clienti sono salvati nella chiave `energy-advisor-pro:workspace:v2`, nel profilo del browser o di Electron. La chiave precedente `energy-advisor-pro:clients:v1` rimane intatta come copia dell’archivio prima della migrazione. Nessun backend, sincronizzazione o font remoto. Cancellare il profilo o i dati del browser elimina l'archivio. I dati non sono cifrati: questa versione è una base dimostrativa, da consolidare prima dell'uso con dati personali reali. Per la versione professionale prevedere SQLite tramite API Electron limitata, backup/ripristino, migrazioni, validazione e protezione dei dati.
 
 ## Struttura
 
@@ -118,3 +118,25 @@ I dati inseriti non sono inviati a GitHub o a un server: restano nel localStorag
 ### Verifica
 
 `npm test` esegue i test di persistenza, compatibilità, modifica, campi sconosciuti, consumo zero, errore di scrittura e conflitti tra schede. Il workflow Pages esegue i test prima di compilare e pubblicare. I dati dei test sono esclusivamente esempi fittizi.
+
+## Profili consulente (0.3.0)
+
+Apri **Gestisci profili** nella barra superiore (anche da smartphone). Il consulente iniziale è **Consulente principale**, con dati anagrafici vuoti. Scegli **Modifica**, inserisci nome, cognome, azienda, telefono, email, indirizzo e, se disponibile, partita IVA. Il campo logo accetta PNG/JPEG/WebP fino a 2 MB; l'immagine viene ridimensionata localmente a un massimo di 320 pixel e salvata nell'archivio. SVG e URL remoti non sono accettati. Nome, cognome o azienda sono necessari per riconoscere un nuovo profilo; gli altri campi sono facoltativi.
+
+**Nuovo profilo** crea un altro consulente con archivio vuoto. Il profilo appena salvato diventa attivo. Il selettore **Consulente attivo** o il pulsante **Usa profilo** cambiano l'archivio visualizzato: dashboard, conteggi, ricerca e lista clienti si riferiscono al consulente selezionato. I nuovi clienti sono associati automaticamente al consulente attivo. Nella scheda cliente puoi modificare **Consulente associato**; il salvataggio chiede conferma per spostare un cliente esistente in un altro archivio. Il cliente conserva ID, note e dati tecnici.
+
+I profili locali non sono account e non costituiscono autenticazione o isolamento di sicurezza. Chi accede allo stesso browser può scegliere qualunque profilo. Non sono presenti password, servizi cloud o sincronizzazione tra dispositivi. Profili e loghi restano nel localStorage; nessun dato personale viene inviato al repository GitHub.
+
+### Conservazione e migrazione
+
+Al primo avvio della versione 0.3.0 tutti i clienti della versione precedente vengono copiati nel nuovo archivio e associati al consulente principale. La chiave originale resta invariata, compresi i suoi byte JSON; si preservano anche dettagli e proprietà aggiuntive dei clienti. Un archivio precedente vuoto resta vuoto. La migrazione scrive il nuovo archivio in un'unica operazione e non si ripete se già completata. Se non c'è spazio o l'archivio non è leggibile, le scritture si bloccano e i dati precedenti restano intatti. Le modifiche provenienti da un'altra scheda o dalla vecchia versione non vengono sovrascritte silenziosamente: in quel caso esporta il backup completo prima di procedere.
+
+**Clienti → Esporta archivio** esporta soltanto il consulente attivo e i suoi clienti. **Impostazioni → Esporta backup completo** salva entrambi gli archivi locali come stringhe JSON originali (`workspaceRaw` e `legacyArchiveRaw`), comprendendo tutti i profili, i loghi e i clienti. Il ripristino guidato resta da implementare; conserva il file e non cancellare i dati del browser.
+
+### Preparazione dei report
+
+Il modello `Advisor` e la relazione `Client.advisorId` consentono di inserire i dati del consulente nei documenti futuri. La funzione `reportContext` ricava il consulente associato al cliente, indipendentemente dal profilo attivo. Il preventivo PDF attuale resta dimostrativo.
+
+### Test
+
+`npm test` comprende test di migrazione, conservazione di clienti/dettagli/campi extra, separazione degli archivi, cambio profilo, modifica profilo e logo, trasferimento esplicito del cliente, associazioni valide, quota insufficiente, archivi corrotti e conflitti con schede o versioni precedenti. Le fixture sono esclusivamente fittizie. Il workflow GitHub Pages esegue test e build prima del deploy.

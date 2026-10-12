@@ -2,9 +2,11 @@ import {useEffect, useRef, useState} from 'react';
 import {Download, Save, X, UserRound, ChevronDown} from 'lucide-react';
 import {clientSections, terminalOptions, type ClientDetails, type Field} from './clientSchema';
 import {electricityValue, type Client} from './data';
+import {advisorName, type Advisor} from './workspace';
 
-type Props = {client: Client | null; onSave: (client: Client) => boolean; onClose: () => void; onPdf: (client: Client) => void; error: string; blocked: boolean};
-export default function ClientForm({client, onSave, onClose, onPdf, error, blocked}: Props) {
+type Props = {client: Client | null; onSave: (client: Client) => boolean; onClose: () => void; onPdf: (client: Client) => void; error: string; blocked: boolean; profiles: Advisor[]; activeProfileId: string};
+export default function ClientForm({client, onSave, onClose, onPdf, error, blocked, profiles, activeProfileId}: Props) {
+  const [advisorId,setAdvisorId] = useState(client?.advisorId || activeProfileId);
   const [name, setName] = useState(client?.name ?? '');
   const [details, setDetails] = useState<ClientDetails>(() => {
     const previous = client?.details ?? {};
@@ -51,10 +53,12 @@ export default function ClientForm({client, onSave, onClose, onPdf, error, block
   function change(key: string, value: string) {setDetails(current => ({...current, [key]: value})); setDirty(true);}
   function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (client && advisorId !== client.advisorId && !window.confirm('Il cliente verrà spostato nell’archivio del consulente selezionato. Vuoi continuare?')) return;
     const normalized = Object.fromEntries(Object.entries(details).map(([key, value]) => [key, value.trim()]));
     normalized.province = normalized.province?.toUpperCase() ?? '';
     const next: Client = {
       ...(client ?? {id: `EA-${crypto.randomUUID()}`, system: 'Da dimensionare', status: 'In analisi', cost: 0}),
+      advisorId,
       name: name.trim(),
       city: [normalized.municipality, normalized.province].filter(Boolean).join(', '),
       kwh: normalized.electricityKwh === '' ? 0 : Number(normalized.electricityKwh),
@@ -82,6 +86,7 @@ export default function ClientForm({client, onSave, onClose, onPdf, error, block
       <div className="sheet-body"><p className="sheet-intro">Tutti i campi sono facoltativi. Compila ciò che conosci e aggiorna la scheda nel tempo. I dati restano nel browser di questo dispositivo.</p>
         {error && <p className="notice" role="alert">{error}</p>}
         <label className="client-display-name" htmlFor="client-name"><span>Nome o ragione sociale</span><input id="client-name" maxLength={200} value={name} onChange={e => {setName(e.target.value);setDirty(true);}} placeholder="Facoltativo: puoi completarlo in seguito"/></label>
+        <label className="client-advisor-field" htmlFor="client-advisor"><span>Consulente associato</span><select id="client-advisor" value={advisorId} onChange={e=>{setAdvisorId(e.target.value);setDirty(true);}}>{profiles.map(profile=><option value={profile.id} key={profile.id}>{advisorName(profile)}</option>)}</select><small>Il cliente sarà visibile nell’archivio del consulente selezionato.</small></label>
         {clientSections.map((section,index) => <details className="sheet-section" key={section.title} open>
           <summary><span className="section-number">{String(index + 1).padStart(2,'0')}</span><span>{section.title}<small>{section.description}</small></span><ChevronDown size={17}/></summary>
           <div className="field-grid">{section.fields.map(field)}
