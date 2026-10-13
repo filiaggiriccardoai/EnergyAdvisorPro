@@ -1,27 +1,28 @@
+import {commercialEconomics,finalizationProblems,isRules,type CommercialRules} from './commercialRules';
 import {isClient, type Client} from './data';
 import {isAdvisor, type Advisor} from './workspace';
-export const categories = ['Fotovoltaico','Inverter','Batteria','Pompa di calore','Accessorio','Servizio'] as const;
+export const categories = ['Fotovoltaico','Inverter','Batteria','Pompa di calore','Accessorio','Servizio','Pacchetto'] as const;
 export type Category = typeof categories[number];
 export type Product = {
  id:string; name:string; category:Category; brand:string; model:string; kind:string; size:number; unit:string;
  quantity:number; purchase:number; sale:number; installationPurchase:number; installationSale:number;
- discount:number; vat:number; active:boolean; demo:boolean;
+ discount:number; vat:number; active:boolean; demo:boolean; minimumNet?:number; minimumMandatory?:boolean; overGross?:number; components?:{productId:string;quantity:number}[];
 };
 export type QuoteLine = Product & {lineId:string};
 export type Quote = {
  id:string; advisorId:string; clientId:string; number:string; title:string; date:string; validUntil:string;
  advisor:Advisor; client:Client; lines:QuoteLine[]; discount:number; notes:string; exclusions:string; conditions:string;
- status:'draft'; updatedAt:string;
+ status:'draft'|'final'; updatedAt:string; commercial?:CommercialRules;
 };
 export type Commerce = {version:1; advisorId:string; products:Product[]; quotes:Quote[]};
 export const commercePrefix='energy-advisor-pro:commerce:v1:';
 export const currency=(n:number)=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(n);
 export function newId() {return crypto.randomUUID();}
 export function emptyProduct():Product {
- return {id:newId(),name:'',category:'Fotovoltaico',brand:'',model:'',kind:'',size:0,unit:'pz',quantity:1,purchase:0,sale:0,installationPurchase:0,installationSale:0,discount:0,vat:22,active:true,demo:false};
+ return {id:newId(),name:'',category:'Fotovoltaico',brand:'',model:'',kind:'',size:0,unit:'pz',quantity:1,purchase:0,sale:0,installationPurchase:0,installationSale:0,discount:0,vat:10,active:true,demo:false,minimumMandatory:true,overGross:0};
 }
 export function demoProducts():Product[] {
- const defaults={brand:'DEMO',model:'Esempio',kind:'',unit:'pz',quantity:1,installationPurchase:0,installationSale:0,discount:0,vat:22,active:true,demo:true};
+ const defaults={brand:'DEMO',model:'Esempio',kind:'',unit:'pz',quantity:1,installationPurchase:0,installationSale:0,discount:0,vat:10,active:true,demo:true};
  return [
   {id:'demo-panel',name:'DEMO · Modulo 450 Wp',category:'Fotovoltaico',size:450,purchase:90,sale:160,quantity:13},
   {id:'demo-inverter',name:'DEMO · Inverter 6 kW',category:'Inverter',size:6,purchase:900,sale:1400,kind:'Ibrido'},
@@ -42,19 +43,24 @@ export function isProduct(value:unknown):value is Product {
   && !!p.id && !!p.name.trim() && !!p.unit.trim() && categories.includes(p.category) && finite(p.size)
   && finite(p.quantity,0.01,100000) && (!['Fotovoltaico','Inverter','Batteria','Pompa di calore'].includes(p.category)||Number.isInteger(p.quantity))
   && [p.purchase,p.sale,p.installationPurchase,p.installationSale].every(v=>finite(v))
-  && finite(p.discount,0,100) && finite(p.vat,0,100) && typeof p.active==='boolean' && typeof p.demo==='boolean';
+  && finite(p.discount,0,100) && finite(p.vat,0,100) && typeof p.active==='boolean' && typeof p.demo==='boolean'
+  && (p.minimumNet===undefined||finite(p.minimumNet))&&(p.overGross===undefined||finite(p.overGross))
+  && (p.minimumMandatory===undefined||typeof p.minimumMandatory==='boolean')
+  && (p.components===undefined||(Array.isArray(p.components)&&p.components.every(c=>c&&typeof c.productId==='string'&&c.productId!==p.id&&finite(c.quantity,0.01,100000))&&new Set(p.components.map(c=>c.productId)).size===p.components.length));
 }
 const dateValid=(d:string)=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&!Number.isNaN(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
 export function isQuote(value:unknown,owner:string):value is Quote {
  if(!value||typeof value!=='object')return false;
  const q=value as Quote;
  return ['id','clientId','number','title','date','validUntil','notes','exclusions','conditions','updatedAt'].every(k=>typeof (q as unknown as Record<string,unknown>)[k]==='string')
-  && !!q.id && !!q.number.trim() && !!q.title.trim() && q.advisorId===owner && q.status==='draft'
+  && !!q.id && !!q.number.trim() && !!q.title.trim() && q.advisorId===owner && ['draft','final'].includes(q.status)
   && isAdvisor(q.advisor)&&q.advisor.id===owner&&isClient(q.client)&&q.client.id===q.clientId&&q.client.advisorId===owner
   && dateValid(q.date)&&(q.validUntil===''||(dateValid(q.validUntil)&&q.validUntil>=q.date))
   && finite(q.discount,0,100) && Array.isArray(q.lines)&&q.lines.length>0&&q.lines.length<=200
   && q.lines.every(l=>isProduct(l)&&typeof l.lineId==='string'&&!!l.lineId)
-  && new Set(q.lines.map(l=>l.lineId)).size===q.lines.length;
+  && new Set(q.lines.map(l=>l.lineId)).size===q.lines.length
+  && (q.commercial===undefined||isRules(q.commercial))
+  && (q.status!=='final'||finalizationProblems(q).length===0);
 }
 export function isCommerce(value:unknown,owner:string):value is Commerce {
  if(!value||typeof value!=='object')return false;
@@ -76,10 +82,12 @@ export function persistCommerce(data:Commerce,expectedRaw:string|null):string {
  if(!isCommerce(data,data.advisorId))throw Error('Dati non validi: controlla articoli, quantità, prezzi, sconti, IVA e date.');
  const key=commercePrefix+data.advisorId;
  if(localStorage.getItem(key)!==expectedRaw)throw Error('Catalogo o preventivi aggiornati in un’altra scheda. Ricarica prima di salvare.');
+ if(expectedRaw!==null){const previous=JSON.parse(expectedRaw) as Commerce;for(const q of previous.quotes??[]){if(q.status==='final'&&JSON.stringify(data.quotes.find(next=>next.id===q.id))!==JSON.stringify(q))throw Error('I preventivi definitivi non possono essere modificati o rimossi.');}}
  const raw=JSON.stringify(data);localStorage.setItem(key,raw);return raw;
 }
 export function upsertQuote(data:Commerce,quote:Quote):Commerce {
  if(!isQuote(quote,data.advisorId))throw Error('Preventivo non valido o associato a un altro consulente.');
+ if(data.quotes.find(q=>q.id===quote.id)?.status==='final')throw Error('Il preventivo finalizzato è immutabile. Crea una nuova bozza.');
  return {...data,quotes:data.quotes.some(q=>q.id===quote.id)?data.quotes.map(q=>q.id===quote.id?quote:q):[quote,...data.quotes]};
 }
 export function localDate(date=new Date()):string {return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
@@ -89,8 +97,9 @@ export function newQuote(advisor:Advisor,client:Client):Quote {
  return {id,advisorId:advisor.id,clientId:client.id,number:`PREV-${date.getFullYear()}-${id.slice(0,8).toUpperCase()}`,title:'Proposta impianto energetico',date:localDate(date),validUntil:localDate(expiry),advisor:structuredClone(advisor),client:structuredClone(client),lines:[],discount:0,notes:'',exclusions:'',conditions:'',status:'draft',updatedAt:''};
 }
 const cents=(n:number)=>Math.round((n+Number.EPSILON)*100);
-export function quoteTotals(quote:Pick<Quote,'lines'|'discount'>) {
+export function quoteTotals(quote:Pick<Quote,'lines'|'discount'> & {commercial?:CommercialRules}) {
  if(!finite(quote.discount,0,100)||!quote.lines.every(isProduct))throw Error('Valori economici non validi.');
+ if(quote.commercial)return commercialEconomics(quote).totals;
  const lines=quote.lines.map(line=>{
   const gross=cents(line.quantity*(line.sale+line.installationSale));
   const rowNet=cents(gross/100*(1-line.discount/100));
@@ -109,4 +118,10 @@ export function systemSizes(lines:QuoteLine[]) {
 }
 export function sizeLabel(p:Product):string {
  return p.size && ['Fotovoltaico','Inverter','Batteria','Pompa di calore'].includes(p.category) ? `${p.size} ${p.category==='Fotovoltaico'?'Wp':p.category==='Batteria'?'kWh utili':'kW nominali'}` : '';
+}
+
+export function finalizeQuote(data:Commerce,q:Quote):Commerce {
+ if(!isQuote(q,data.advisorId))throw Error('Bozza non valida.');
+ const problems=finalizationProblems(q);if(problems.length)throw Error(problems.join(' '));
+ return upsertQuote(data,{...q,status:'final',updatedAt:new Date().toISOString()});
 }

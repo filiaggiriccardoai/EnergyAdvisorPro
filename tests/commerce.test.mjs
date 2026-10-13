@@ -10,7 +10,7 @@ import ts from 'typescript';
 const temporary=mkdtempSync(join(tmpdir(),'energy-commerce-tests-'));
 writeFileSync(join(temporary,'package.json'),'{"type":"module"}');
 symlinkSync(resolve('node_modules'),join(temporary,'node_modules'),'dir');
-for(const name of ['clientSchema','data','workspace','commerce','QuotePreview','quotePdf']){
+for(const name of ['clientSchema','data','workspace','money','commercialRules','customerDocument','commerce','QuotePreview','quotePdf']){
  const path=`../src/${name}.${name==='QuotePreview'?'tsx':'ts'}`;
  const source=readFileSync(new URL(path,import.meta.url),'utf8');
  const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX}}).outputText.replace(/from '(.\/[^']+)'/g,"from '$1.js'");

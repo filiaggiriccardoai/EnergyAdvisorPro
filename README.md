@@ -168,3 +168,47 @@ La separazione è locale nell'interfaccia, non autenticazione sicura. Nessun dat
 I test coprono compatibilità e conservazione degli archivi, persistenza e separazione per consulente, più offerte per cliente, indipendenza delle copie dal catalogo, sconti, IVA mista, arrotondamenti, margini, taglie, date e valori non validi, errori di spazio e conflitti, anteprima senza costi interni e PDF multipagina. Build TypeScript/Vite prevista prima del deploy Pages. La verifica completa in Chromium non è stata conclusa nell'ambiente; non è presentata come superata.
 
 Rimangono per le prossime fasi: importazione Excel con mappatura colonne e validazione, versioni/revisioni e accettazione offerte, invio e firma, confronti tra scenari, dimensionamento tecnico e incentivi. Il ripristino guidato dei backup è ancora da implementare.
+
+## Over, provvigioni e contratti (0.5.0)
+
+Il modulo è integrato nella stessa app, con gli stessi clienti, consulenti, cataloghi e preventivi. Non introduce un secondo progetto o account online.
+
+### Regole economiche e prezzi
+
+Le nuove offerte commerciali fotografano regole v1: IVA 10%, provvigione base 10% sul solo minimo netto, provvigione venditore 60% sul solo over netto, quota azienda 40% sull'over netto. L'over di listino è unitario in euro IVA 10% inclusa. Il minimo unitario è netto e comprende l'installazione. Gli importi nuovi sono calcolati con interi BigInt e arrotondamento half-up al centesimo; i valori memorizzati nei contratti sono stringhe di centesimi. L'over netto complessivo è il lordo diviso 1,10, con ripartizione dei centesimi sulle righe per preservare il totale. Le provvigioni base e over vengono arrotondate separatamente; la quota azienda completa la ripartizione dell'over netto.
+
+Esempio verificato: 10.000 euro minimo netto, 2.200 euro over lordo = 2.000 euro over netto; base 1.000 euro, over venditore 1.200 euro, teorica 2.200 euro, quota azienda 800 euro, prezzo cliente IVA inclusa 13.200 euro.
+
+Gli sconti riducono il prezzo cliente. La provvigione teorica segue le formule sul minimo e sull'over inseriti, non un'ulteriore rettifica automatica per sconti. Questo criterio è esplicitamente fotografato come `discountPolicy: quoted-over`; l'importo maturato resta confermato manualmente. Non vengono dedotte automaticamente altre componenti dal compenso.
+
+In **Catalogo e listini**, configura prezzo minimo, obbligatorietà e over lordo. La categoria **Pacchetto** permette di scegliere i componenti inclusi e le quantità. Il prezzo complessivo del pacchetto è manuale: i componenti non vengono inseriti come righe separate né sommati nuovamente. Componenti duplicati tra un pacchetto e un'altra riga/pacchetto bloccano la finalizzazione; per articoli già eliminati dal catalogo rimangono le copie storiche nel preventivo.
+
+Le bozze esistenti non vengono ricalcolate o convertite automaticamente. **Attiva over e provvigioni** applica esplicitamente le regole alla bozza aperta; il salvataggio è manuale. Le nuove offerte usano le regole commerciali e IVA 10%. Il minimo fotografato è visibile internamente e non viene abbassato nel configuratore; per un diverso listino crea/aggiorna l'articolo prima di inserirlo in una nuova offerta.
+
+**Salva bozza** resta disponibile anche sotto minimo. **Finalizza offerta** richiede una bozza salvata, valida, senza violazioni dei minimi obbligatori o doppie righe di pacchetto. I definitivi sono immutabili nell'app: crea una nuova offerta per revisioni. Il PDF definitivo è bloccato per valori non finalizzabili; il PDF bozza mantiene la marcatura BOZZA.
+
+### Gestionale provvigioni
+
+Apri **Gestionale provvigioni → Registra contratto firmato**, scegli un preventivo definitivo e indica la data della firma. Ogni offerta può originare un solo contratto. Cliente, consulente, preventivo e fotografia economica restano collegati e immutabili anche se cambiano listini o anagrafiche. La firma non conferma alcuna maturazione.
+
+- **Incassi azienda:** una riga per tranche, bonifico o finanziaria. Registra importo/data previsti, importo/data effettivi, riferimento e note. Quando arriva la tranche, modifica quella prevista anziché aggiungerla di nuovo. Il saldo cliente usa gli importi realmente incassati rispetto all'importo contrattuale.
+- **Imprevisti:** tipo, descrizione, importo, data, stato e impatto da definire. Gli annullati sono esclusi dal totale degli imprevisti confermati; nessun imprevisto modifica automaticamente le provvigioni.
+- **Maturazione manuale:** indica totale maturato confermato, data e motivazione. Ogni conferma conserva valore precedente, operatore locale e timestamp. Non somma il nuovo totale ai precedenti. Puoi lasciare aperta la verifica per il residuo teorico oppure chiuderla esplicitamente. Una successiva conferma resta tracciata. Non sono definite automazioni per parziali, saldo, finanziarie o imprevisti.
+- **Pagamenti consulente:** importi realmente pagati, date, riferimenti e note; pagamenti parziali e residuo sull'importo confermato. Pagamenti oltre la conferma vengono segnalati e conservati.
+- **Stati:** progressione da firma a sopralluogo, installazione, collaudo, completamento, con possibilità di annullamento. Ogni variazione richiede una motivazione. In questa prima versione le retrocessioni e la riapertura di un annullato sono bloccate. L'annullamento non cancella incassi, pagamenti o conferme e non revoca automaticamente compensi.
+
+La dashboard filtra per **data firma**, anno e mese, e usa il consulente selezionato nella barra superiore. Gli importi sono cumulativi dei contratti selezionati, non flussi di cassa del solo mese. Vendite e teoriche escludono gli annullati; incassi, pagamenti e conferme effettivi restano conteggiati. La maturazione da verificare distingue le conferme parziali da quelle esplicitamente chiuse. I riferimenti non vuoti di incassi e pagamenti sono unici per ciascun registro del consulente; operazioni diverse devono avere riferimenti distinti. Le modifiche a una registrazione conservano l'ID e aggiornano il valore, senza sommare una copia. Non è ancora gestita la ripartizione automatica di una transazione su più contratti.
+
+### Riservatezza e archivi
+
+Il renderer cliente usa un elenco esplicito di soli dati pubblici. Prezzi minimi, over separato, acquisti, compensi, regole provvigionali e annotazioni interne non vengono inclusi nell'anteprima, nel contenuto o nei metadati del PDF. I prezzi finali includono naturalmente gli importi applicati al cliente. Note offerta, esclusioni e condizioni sono campi pubblici: non inserirvi informazioni interne.
+
+Il gestionale è dichiarato **interno, non protetto**: localStorage conserva i dati in chiaro, il cambio profilo non è autenticazione, e il registro di modifiche non è certificato né resistente alla manomissione fuori dall'app. Non c'è una password fittizia. La soluzione incrementale futura prevede database desktop cifrato, gestione delle chiavi tramite sistema operativo Windows e accessi/ruoli autentici; non è implementata in questa versione.
+
+I contratti usano `energy-advisor-pro:contracts:v1:<advisorId>` senza riscrivere gli archivi precedenti. I nuovi campi commerciali sono opzionali e compatibili con cataloghi/preventivi 0.4.0. Il caricamento non migra automaticamente né ripopola dati esistenti. Tutti gli archivi sono inclusi nel backup completo; il backup del consulente include anche i suoi contratti. Sono backup interni da non condividere con il cliente. Il ripristino guidato resta futuro.
+
+### Verifiche e prossimi sviluppi
+
+I test coprono l'esempio obbligatorio, conversione/arrotondamenti e ripartizione dei centesimi, conservazione storica, minimi e PDF definitivo, pacchetti, immutabilità dei definitivi, contratti unici, incassi e pagamenti senza duplicati, maturazione non automatica e conferme tracciate, imprevisti non detratti, stati e annullamento, separazione per consulente, errori di spazio/conflitti, dashboard e riservatezza di anteprima/PDF/metadati. La verifica completa Chromium non è stata eseguita in questo incremento.
+
+Restano da sviluppare regole automatiche di maturazione dopo conferma aziendale, rettifiche economiche formalizzate, revisioni/riaperture dei contratti, importazioni listini Excel, ripartizione di operazioni su più contratti, protezione autentica e ripristino guidato. Non viene promessa alcuna di queste funzioni come già disponibile.
