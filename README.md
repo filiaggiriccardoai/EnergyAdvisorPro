@@ -140,3 +140,31 @@ Il modello `Advisor` e la relazione `Client.advisorId` consentono di inserire i 
 ### Test
 
 `npm test` comprende test di migrazione, conservazione di clienti/dettagli/campi extra, separazione degli archivi, cambio profilo, modifica profilo e logo, trasferimento esplicito del cliente, associazioni valide, quota insufficiente, archivi corrotti e conflitti con schede o versioni precedenti. Le fixture sono esclusivamente fittizie. Il workflow GitHub Pages esegue test e build prima del deploy.
+
+## Catalogo, listini e preventivi (0.4.0)
+
+Apri **Catalogo e listini** per creare un articolo/taglia. Puoi configurare categoria, marca, modello, tipologia, potenza o capacità nominale, unità, quantità proposta, acquisto/vendita, installazione unitaria, sconto e IVA. Le categorie coprono moduli FV, inverter, batterie, pompe di calore, accessori e servizi. Modifica o duplica una riga per un'altra taglia; disattiva gli articoli da non proporre oppure eliminali. Le righe già salvate nei preventivi sono copie e non cambiano quando il catalogo viene modificato.
+
+Il catalogo iniziale contiene soltanto esempi **DEMO**, con marche, modelli e prezzi fittizi, modificabili o eliminabili. Non sono listini ufficiali. Gli articoli restano DEMO finché il consulente non aggiorna e riclassifica esplicitamente i dati. IVA predefinita 22%, modificabile; nessuna aliquota agevolata o incentivo viene presunto.
+
+Apri **Preventivi → Nuovo preventivo**, seleziona un cliente dell'archivio attivo, aggiungi articoli dal catalogo e modifica quantità, prezzi, sconti e IVA. Sono consentite più bozze per cliente. Completa data, validità, note, esclusioni e condizioni; scegli **Salva bozza**. Dopo il salvataggio puoi usare **Anteprima** e **Scarica PDF**. Le bozze persistono dopo la ricarica e si riaprono da **Apri preventivo**. Il cambio pagina o consulente chiede conferma se ci sono modifiche non salvate.
+
+Per pannelli, inverter, batterie e pompe di calore le quantità sono intere, con minimo 1. Accessori e servizi possono usare quantità decimali, con minimo 0,01. I totali di pannelli, kWp, kWh utilizzabili e kW termici sono somme delle taglie selezionate, non dimensionamento tecnico.
+
+### Calcoli e documenti
+
+Prezzi e costi sono al netto dell'IVA. L'installazione configurata è un importo unitario moltiplicato per la quantità: usa questo campo oppure una riga servizio, evitando il doppio conteggio. Lo sconto riga si applica a vendita e installazione; lo sconto generale si applica successivamente. Si arrotonda a centesimi per riga, poi si calcola l'IVA per aliquota. Il margine lordo è ricavo netto meno acquisti e installazione netti; non comprende spese generali o imposte. La percentuale del margine è sul ricavo ed è non applicabile se il ricavo è zero.
+
+Costi e margini sono interni e non compaiono nell'anteprima o nel PDF. Il documento contiene intestazioni consulente/cliente, logo, componenti, quantità, prezzi, sconti, imponibile, IVA, totale, validità e condizioni. Le intestazioni sono copie conservate nella bozza. **Aggiorna intestazione** legge i dati correnti senza cambiare le altre bozze. Se un cliente viene spostato a un altro consulente, le offerte precedenti conservano l'intestazione originale. I PDF hanno marcatura BOZZA; le offerte che includono righe DEMO riportano un avviso esplicito. Testi lunghi proseguono su più pagine.
+
+### Archivi e compatibilità
+
+Catalogo e preventivi usano una chiave separata per consulente: `energy-advisor-pro:commerce:v1:<advisorId>`. Non riscrivono gli archivi clienti/profili o la copia precedente alla migrazione. Il catalogo DEMO viene proposto solo quando la nuova chiave non esiste: un catalogo salvato vuoto non viene ripopolato. Errori di scrittura, archivi corrotti e conflitti tra schede non cancellano dati. **Impostazioni → Esporta backup completo** include anche tutti gli archivi commerciali; l'esportazione del consulente include solo il suo archivio commerciale.
+
+La separazione è locale nell'interfaccia, non autenticazione sicura. Nessun dato personale viene inviato a GitHub. L'archiviazione resta specifica del browser/dispositivo, senza sincronizzazione.
+
+### Verifiche e sviluppi successivi
+
+I test coprono compatibilità e conservazione degli archivi, persistenza e separazione per consulente, più offerte per cliente, indipendenza delle copie dal catalogo, sconti, IVA mista, arrotondamenti, margini, taglie, date e valori non validi, errori di spazio e conflitti, anteprima senza costi interni e PDF multipagina. Build TypeScript/Vite prevista prima del deploy Pages. La verifica completa in Chromium non è stata conclusa nell'ambiente; non è presentata come superata.
+
+Rimangono per le prossime fasi: importazione Excel con mappatura colonne e validazione, versioni/revisioni e accettazione offerte, invio e firma, confronti tra scenari, dimensionamento tecnico e incentivi. Il ripristino guidato dei backup è ancora da implementare.
